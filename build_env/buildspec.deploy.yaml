@@ -1,0 +1,69 @@
+version: 0.2
+env:
+  git-credential-helper: yes
+  parameter-store:
+    ASSUME_ROLE: eks-role-arn
+  variables:
+    BUILD_SPEC: 'deploy'
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+      python: 3.8
+    commands:
+      - echo "Install kubectl ..."
+      - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      - echo "Install awscli" 
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - ls -l /root/.pyenv/shims/aws
+      - ./aws/install --bin-dir /root/.pyenv/shims --install-dir /usr/local/aws-cli --update
+  pre_build:
+    commands:
+      - export TAG=$(<${CODEBUILD_SRC_DIR_BuildArtifact}/build_output.txt)
+      - export MY_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPO}"
+      - echo ${TAG}
+      - echo ${MY_ECR}
+      - |
+        export ASSUME_SESSION_NAME="codebuild-$(date +%s)"
+
+        echo "ASSUME_ROLE_ARN=${ASSUME_ROLE}"
+        aws sts assume-role --role-arn ${ASSUME_ROLE} --role-session-name ${ASSUME_SESSION_NAME} --output json > config.json
+        
+  build:
+    commands:
+      - |
+        echo "Set up eks config ..."
+        export AWS_ACCESS_KEY_ID_OLD=${AWS_ACCESS_KEY_ID}
+        export AWS_SECRET_ACCESS_KEY_OLD=${AWS_SECRET_ACCESS_KEY}
+        export AWS_SESSION_TOKEN_OLD=${AWS_SESSION_TOKEN}
+
+        export AWS_ACCESS_KEY_ID=$(cat config.json | jq ".Credentials.AccessKeyId" | tr -d '"')
+        export AWS_SECRET_ACCESS_KEY=$(cat config.json | jq ".Credentials.SecretAccessKey" | tr -d '"')
+        export AWS_SESSION_TOKEN=$(cat config.json | jq ".Credentials.SessionToken" | tr -d '"')
+        
+        aws eks --region ${REGION} update-kubeconfig --name <CLUSTER_NAME>
+
+      - |
+        echo "### Deploy k8s manifest file"
+        kubectl config current-context
+        kubectl get pod -A  
+        
+        cd kubernetes
+        sed -i "s+$MY_ECR.*+$MY_ECR:$TAG+g"  deployment.yaml
+        
+        cat deployment.yaml
+        
+        kubectl apply -f deployment.yaml
+        kubectl rollout status deployment deployment-demo -n demo
+      
+      - cd ${CODEBUILD_SRC_DIR}
+      - echo "kubectl config current-context" > deploy_output.txt  
+  post_build:
+    commands:
+     - kubectl get svc -n demo
+artifacts:
+  files:
+    - deploy_output.txt

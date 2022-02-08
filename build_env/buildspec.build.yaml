@@ -1,0 +1,62 @@
+version: 0.2
+env:
+  git-credential-helper: yes
+  variables:
+    BUILD_SPEC: 'build'
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+      python: 3.8
+    commands:
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - ls -l /root/.pyenv/shims/aws
+      - ./aws/install --bin-dir /root/.pyenv/shims --install-dir /usr/local/aws-cli --update
+  pre_build:
+    commands:
+      - aws --version
+      - export MY_ECR="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPO}"
+      - echo "### SRC_VERISON-> ${CODEBUILD_RESOLVED_SOURCE_VERSION}"
+      - docker login --username AWS -p $(aws ecr get-login-password --region ${REGION}) ${MY_ECR}
+      - export TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION}
+      - export TAG=$(echo $TAG | sed -e "s/\.//g"| tr '[:upper:]' '[:lower:]')
+      - export TAG=$(echo "${TAG:0:3}")
+      - echo "## TAG-> ${TAG}"
+  build:
+    commands:
+      - |
+        echo "### Building Container Image ###"
+        echo $CODEBUILD_SRC_DIR
+        docker build -f ./Dockerfile -t "${MY_ECR}:latest" .
+        docker images
+        docker tag "${MY_ECR}:latest" "${MY_ECR}:${TAG}"
+        
+
+      - |
+        echo "### Pushing Container Image ###"
+        docker push "${MY_ECR}:${TAG}"
+        
+      - echo "${TAG}" > build_output.txt
+  post_build:
+    commands:
+    # - |
+    #   echo "### Update Tag"
+    #   git version
+    #   git clone <MANIFEST_REPO_URL>
+    #   ls
+    #   cd manifest-gitops-01
+    #   cat deployment.yaml
+    #   sed -i "s+$MY_ECR.*+$MY_ECR:$TAG+g"  deployment.yaml
+    #   cat deployment.yaml
+    #   git status
+    #   git config user.email "kdaegon@amazon.com"
+    #   git config user.name "Daegon"
+    #   git add .
+    #   git commit -m "Updated image tag to ${TAG}"
+    #   git log --oneline
+    #   git remote -v
+    #   git push -u origin master
+artifacts:
+  files:
+    - build_output.txt
