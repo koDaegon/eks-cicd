@@ -1,6 +1,21 @@
 # Express Sample App 을 활용한 EKS CICD Hands-On
 
+## 실습 순서
+1. 클러스터 및 실습 환경 셋업
+2. Codebuild 이용해 CI/CD 구성해보기
+3. ArgoCD를 사용하여 GitOps 형태의 GitOps로 전환 해보기
+
+
 ## 실습 아키텍처
+
+### Code Series를 활용한 CI/CD
+![eks-cicd-codebuild-arch](https://user-images.githubusercontent.com/47220755/153075744-08a278fa-8c38-4864-af7b-191cfc1f2f7b.jpg)
+
+
+
+### ArgoCD를 활용한 GitOps
+![eks-cicd-argocd-arch](https://user-images.githubusercontent.com/47220755/153075647-1f5f6c73-a7fe-4bbb-905d-994617dc489a.jpg)
+
 
 
 ## 실습 환경 세팅
