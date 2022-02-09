@@ -86,6 +86,23 @@ Resources:
                 ProjectName: !Ref BuildProject
               OutputArtifacts:
                 - Name: BuildArtifact
+        - Name: Deploy
+          Actions:
+            - Name: Deploy
+              ActionTypeId:
+                Category: Build
+                Provider: CodeBuild
+                Owner: AWS
+                Version: '1'
+              RunOrder: 1
+              InputArtifacts:
+                - Name: Source
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !Ref DeployProject
+                PrimarySource: Source
+              OutputArtifacts:
+                - Name: DeployArtifact
       ArtifactStore:
         Type: S3
         Location: !Ref ArtifactBucket
@@ -104,7 +121,7 @@ Resources:
       Name: !Join
         - "-"
         - - !Ref RepositoryName
-          - "CodeBuild"
+          - "Build"
           - !Join ['-', !Split ['/', !Ref Branch]]
       ServiceRole: !Ref PipelineServiceRoleArn
       Artifacts:
@@ -131,5 +148,38 @@ Resources:
       Source:
         Type: CODEPIPELINE
         BuildSpec: build_env/buildspec.build.yaml
-
+  
+  DeployProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Join
+        - "-"
+        - - !Ref RepositoryName
+          - "Deploy"
+          - !Join ['-', !Split ['/', !Ref Branch]]
+      ServiceRole: !Ref PipelineServiceRoleArn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: !Ref EnvironmentType
+        ComputeType: !Ref BuildComputeType
+        Image: !Ref BuildImageName
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: BRANCH_NAME
+            Value: !Ref Branch
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: REGION
+            Value: !Ref AWS::Region
+          - Name: SERVICE_NAME
+            Value: !Ref RepositoryName
+          - Name: SERVICE_ARN
+            Value: !Ref PipelineServiceRoleArn
+          - Name: ECR_REPO
+            Value: !Ref ECRRepository
+    
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: build_env/buildspec.deploy.yaml
          
