@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+
+  Pipelines Repository CodePipeline
+
+
+
+Parameters:
+
+  BuildImageName:
+
+    Description: Docker image for application build
+
+    Type: String
+
+    Default: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+
+  Branch:
+
+    Description: Repository branch name
+
+    Type: String
+
+    Default: master
+
+  PipelineServiceRoleArn:
+
+    Description: Pipeline service role ARN
+
+    Type: String
+
+    Default: arn
+
+  RepositoryName:
+
+    Description: Repository name
+
+    Type: String
+
+    Default: Sample
+
+  ArtifactBucket:
+
+    Description: S3 Location for artifacts
+
+    Type: String
+
+    Default: cc-test-ci-results-bucket 
+
+  BuildComputeType:
+
+    Description: Define a compute type when it runs on a build process
+
+    Type: String
+
+    AllowedValues:
+
+      - BUILD_GENERAL1_SMALL
+
+      - BUILD_GENERAL1_MEDIUM
+
+      - BUILD_GENERAL1_LARGE
+
+      - BUILD_GENERAL1_2XLARGE
+
+    Default: BUILD_GENERAL1_SMALL
+
+  EnvironmentType:
+
+    Description: Environment type for CodeBuild environment
+
+    Type: String
+
+    AllowedValues:
+
+      - LINUX_CONTAINER
+
+      - LINUX_GPU_CONTAINER
+
+      - ARM_CONTAINER
+
+    Default: LINUX_CONTAINER
+
+
+
+Resources:
+
+  Pipeline:
+
+    Type: AWS::CodePipeline::Pipeline
+
+    Properties:
+
+      RoleArn: !Ref PipelineServiceRoleArn
+
+      Name: !Join
+
+        - "-"
+
+        - - !Ref RepositoryName
+
+          - "CodePipeline"
+
+          - !Join ['-', !Split ['/', !Ref Branch]]
+
+      Stages:
+
+        - Name: Source
+
+          Actions:
+
+            - Name: !Join
+
+                - "-"
+
+                - - !Ref RepositoryName
+
+                  - "CodeCommit"
+
+                  - !Join ['-', !Split ['/', !Ref Branch]]
+
+              RunOrder: 1
+
+              ActionTypeId:
+
+                Category: Source
+
+                Provider: CodeCommit
+
+                Owner: AWS
+
+                Version: '1'
+
+              OutputArtifacts:
+
+                - Name: Source
+
+              Configuration:
+
+                RepositoryName: !Ref RepositoryName
+
+                BranchName: !Ref Branch
+
+                PollForSourceChanges: true
+
+        - Name: Build
+
+          Actions:
+
+            - Name: Build
+
+              ActionTypeId:
+
+                Category: Build
+
+                Provider: CodeBuild
+
+                Owner: AWS
+
+                Version: '1'
+
+              RunOrder: 1
+
+              InputArtifacts:
+
+                - Name: Source
+
+              Configuration:
+
+                ProjectName: !Ref BuildProject
+
+              OutputArtifacts:
+
+                - Name: BuildArtifact
+
+        - Name: Deploy
+
+          Actions:
+
+            - Name: Deploy
+
+              ActionTypeId:
+
+                Category: Build
+
+                Provider: CodeBuild
+
+                Owner: AWS
+
+                Version: '1'
+
+              RunOrder: 1
+
+              InputArtifacts:
+
+                - Name: Source
+
+                - Name: BuildArtifact
+
+              Configuration:
+
+                ProjectName: !Ref DeployProject
+
+                PrimarySource: Source
+
+              OutputArtifacts:
+
+                - Name: DeployArtifact
+
+      ArtifactStore:
+
+        Type: S3
+
+        Location: !Ref ArtifactBucket
+
+
+
+  ECRRepository:
+
+    Type: AWS::ECR::Repository
+
+    Properties:
+
+      RepositoryName: !Join
+
+        - "-"
+
+        - - !Ref RepositoryName
+
+          - "ecr-repo"
+
+
+
+  BuildProject:
+
+    Type: AWS::CodeBuild::Project
+
+    Properties:
+
+      Name: !Join
+
+        - "-"
+
+        - - !Ref RepositoryName
+
+          - "Build"
+
+          - !Join ['-', !Split ['/', !Ref Branch]]
+
+      ServiceRole: !Ref PipelineServiceRoleArn
+
+      Artifacts:
+
+        Type: CODEPIPELINE
+
+      Environment:
+
+        Type: !Ref EnvironmentType
+
+        ComputeType: !Ref BuildComputeType
+
+        Image: !Ref BuildImageName
+
+        PrivilegedMode: true
+
+        EnvironmentVariables:
+
+          - Name: BRANCH_NAME
+
+            Value: !Ref Branch
+
+          - Name: AWS_ACCOUNT_ID
+
+            Value: !Ref AWS::AccountId
+
+          - Name: REGION
+
+            Value: !Ref AWS::Region
+
+          - Name: SERVICE_NAME
+
+            Value: !Ref RepositoryName
+
+          - Name: SERVICE_ARN
+
+            Value: !Ref PipelineServiceRoleArn
+
+          - Name: ECR_REPO
+
+            Value: !Ref ECRRepository
+
+    
+
+      Source:
+
+        Type: CODEPIPELINE
+
+        BuildSpec: build_env/buildspec.build.yaml
+
+  
+
+  DeployProject:
+
+    Type: AWS::CodeBuild::Project
+
+    Properties:
+
+      Name: !Join
+
+        - "-"
+
+        - - !Ref RepositoryName
+
+          - "Deploy"
+
+          - !Join ['-', !Split ['/', !Ref Branch]]
+
+      ServiceRole: !Ref PipelineServiceRoleArn
+
+      Artifacts:
+
+        Type: CODEPIPELINE
+
+      Environment:
+
+        Type: !Ref EnvironmentType
+
+        ComputeType: !Ref BuildComputeType
+
+        Image: !Ref BuildImageName
+
+        PrivilegedMode: true
+
+        EnvironmentVariables:
+
+          - Name: BRANCH_NAME
+
+            Value: !Ref Branch
+
+          - Name: AWS_ACCOUNT_ID
+
+            Value: !Ref AWS::AccountId
+
+          - Name: REGION
+
+            Value: !Ref AWS::Region
+
+          - Name: SERVICE_NAME
+
+            Value: !Ref RepositoryName
+
+          - Name: SERVICE_ARN
+
+            Value: !Ref PipelineServiceRoleArn
+
+          - Name: ECR_REPO
+
+            Value: !Ref ECRRepository
+
+    
+
+      Source:
+
+        Type: CODEPIPELINE
+
+        BuildSpec: build_env/buildspec.deploy.yaml
