@@ -14,7 +14,7 @@
 
 
 ### ArgoCD를 활용한 GitOps
-![eks-cicd-argocd-arch](https://user-images.githubusercontent.com/47220755/153075647-1f5f6c73-a7fe-4bbb-905d-994617dc489a.jpg)
+![argo-arch](https://user-images.githubusercontent.com/47220755/153104826-376d9c6a-a75a-41d4-ab13-ca69bcd51205.jpg)
 
 
 
