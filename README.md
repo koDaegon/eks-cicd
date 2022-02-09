@@ -159,7 +159,7 @@
       subnets:
         private:
           ap-northeast-2a: { id: <Private-Subnet-id-1> }
-          ap-northeast-2c: { id: <Private-Subnet-id-2> }
+          ap-northeast-2b: { id: <Private-Subnet-id-2> }
     
     managedNodeGroups:
     - name: nodegroup
