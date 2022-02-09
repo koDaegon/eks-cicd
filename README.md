@@ -14,8 +14,7 @@
 
 
 ### ArgoCD를 활용한 GitOps
-![argo-arch](https://user-images.githubusercontent.com/47220755/153104826-376d9c6a-a75a-41d4-ab13-ca69bcd51205.jpg)
-
+![argo-cd](https://user-images.githubusercontent.com/47220755/153104957-9123d6a0-c6a6-4500-b1b6-537bf1308e40.jpg)
 
 
 ## 실습 환경 세팅
