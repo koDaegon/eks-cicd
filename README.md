@@ -33,7 +33,7 @@
        https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
     
     sudo chmod +x /usr/local/bin/kubectl
-    kuberctl version --short
+    kubectl version --short
     ```
     
 - awscli 업데이트
